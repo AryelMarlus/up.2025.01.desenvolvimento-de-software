@@ -1,4 +1,4 @@
-package up.voo;
+package up.strategy.voo;
 
 public class VoarComAsas implements Voar{
 

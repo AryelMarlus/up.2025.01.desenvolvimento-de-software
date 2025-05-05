@@ -1,22 +1,30 @@
 package up;
 
-import up.patos.Pato;
-import up.voo.VoarComAsas;
-import up.voo.VoarComBalao;
-import up.voo.VoarNoWay;
+import up.pokemon.pokemon.*;
+
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 public class Main {
     public static void main(String[] args) {
+        Map<StatType, StatComponent> stats = new EnumMap<>(StatType.class);
+        stats.put(StatType.ATTACK, new BaseStat(StatType.ATTACK, 80));
+        stats.put(StatType.SPEED, new BaseStat(StatType.SPEED, 70));
 
-        Pato abelardo = new Pato(new VoarComAsas());
-        abelardo.voar();
+        List<PokemonType> types = Arrays.asList(PokemonType.FIRE);
 
-        abelardo.setVoar(new VoarNoWay());
-        abelardo.voar();
+        Pokemon charmeleon = new Pokemon("Charmeleon", types, stats);
 
-        abelardo.setVoar(new VoarComBalao());
-        abelardo.voar();
+        charmeleon.printStats();
+
+        charmeleon.applyBuff(StatType.ATTACK, 15);
+        charmeleon.applyMultiplier(StatType.SPEED, 1.5);
+
+        System.out.println("\nApós aplicar modificadores:");
+        charmeleon.printStats();
     }
 }

@@ -1,6 +1,6 @@
-package up.patos;
+package up.strategy.patos;
 
-import up.voo.Voar;
+import up.strategy.voo.Voar;
 
 public class Pato {
     private Voar voar;
