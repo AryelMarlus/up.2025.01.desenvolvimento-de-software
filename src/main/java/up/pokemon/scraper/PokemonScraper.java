@@ -1,5 +1,7 @@
 package up.pokemon.scraper;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -8,69 +10,97 @@ import org.jsoup.select.Elements;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class PokemonScraper {
 
-    private static final String URL = "https://bulbapedia.bulbagarden.net/wiki/List_of_Pok%C3%A9mon_by_base_stats_in_Generation_I";
-    private static final String CSV_FILE = "pokemon_stats_gen1.csv";
+    static class Pokemon {
+        private String number;
+        private String name;
+        private int hp;
+        private int attack;
+        private int defense;
+        private int speed;
+        private int special;
+        private int total;
+        private double average;
+
+        public Pokemon(String number, String name, int hp, int attack, int defense,
+                       int speed, int special, int total, double average) {
+            this.number = number;
+            this.name = name;
+            this.hp = hp;
+            this.attack = attack;
+            this.defense = defense;
+            this.speed = speed;
+            this.special = special;
+            this.total = total;
+            this.average = average;
+        }
+    }
 
     public static void main(String[] args) {
+        String url = "https://bulbapedia.bulbagarden.net/wiki/List_of_Pok%C3%A9mon_by_base_stats_in_Generation_I";
+        List<Pokemon> pokemons = new ArrayList<>();
+
         try {
-            Document doc = Jsoup.connect(URL).get();
-            Element table = doc.selectFirst("table.roundy"); // Encontra a primeira tabela com a classe "roundy"
+            Document doc = Jsoup.connect(url).get();
+            Elements tables = doc.select("table.sortable");
 
-            if (table != null) {
-                Elements rows = table.select("tbody tr");
-                List<Map<String, String>> pokemonData = new ArrayList<>();
-                String[] headers = {"Pokémon", "HP", "Attack", "Defense", "Speed", "Special"};
+            for (Element table : tables) {
+                Elements headers = table.select("th");
+                boolean hasPokedexNumber = headers.stream().anyMatch(h -> h.text().trim().equals("#"));
 
-                // Começa da segunda linha para ignorar o cabeçalho principal
-                for (int i = 1; i < rows.size(); i++) {
-                    Element row = rows.get(i);
-                    Elements cols = row.select("td");
+                if (hasPokedexNumber) {
+                    Elements rows = table.select("tr");
+                    for (int i = 1; i < rows.size(); i++) {
+                        Elements cols = rows.get(i).select("td");
+                        if (cols.size() >= 9) {
+                            try {
+                                String number = cols.get(0).text().trim().replaceAll("[^0-9]", "");
+                                String name = cols.get(1).text().trim();
+                                String hpText = cols.get(2).text().trim().replaceAll("[^0-9]", "");
+                                String attackText = cols.get(3).text().trim().replaceAll("[^0-9]", "");
+                                String defenseText = cols.get(4).text().trim().replaceAll("[^0-9]", "");
+                                String speedText = cols.get(5).text().trim().replaceAll("[^0-9]", "");
+                                String specialText = cols.get(6).text().trim().replaceAll("[^0-9]", "");
+                                String totalText = cols.get(7).text().trim().replaceAll("[^0-9]", "");
+                                String averageText = cols.get(8).text().trim().replaceAll("[^0-9.]+", "");
 
-                    // Verifica se a linha tem o número correto de colunas de dados
-                    if (cols.size() == 6) {
-                        Map<String, String> pokemon = new HashMap<>();
-                        pokemon.put(headers[0], cols.get(1).text().trim()); // Nome do Pokémon
-                        pokemon.put(headers[1], cols.get(2).text().trim()); // HP
-                        pokemon.put(headers[2], cols.get(3).text().trim()); // Attack
-                        pokemon.put(headers[3], cols.get(4).text().trim()); // Defense
-                        pokemon.put(headers[4], cols.get(5).text().trim()); // Speed
-                        pokemon.put(headers[5], cols.get(6).text().trim()); // Special (na Geração I era um stat único)
-                        pokemonData.add(pokemon);
+                                if (number.isEmpty() || hpText.isEmpty() || attackText.isEmpty() ||
+                                        defenseText.isEmpty() || speedText.isEmpty() || specialText.isEmpty() ||
+                                        totalText.isEmpty() || averageText.isEmpty()) {
+                                    continue; // pula linha se algum campo estiver vazio após limpeza
+                                }
+
+                                int hp = Integer.parseInt(hpText);
+                                int attack = Integer.parseInt(attackText);
+                                int defense = Integer.parseInt(defenseText);
+                                int speed = Integer.parseInt(speedText);
+                                int special = Integer.parseInt(specialText);
+                                int total = Integer.parseInt(totalText);
+                                double average = Double.parseDouble(averageText);
+
+                                pokemons.add(new Pokemon(number, name, hp, attack, defense, speed, special, total, average));
+                            } catch (NumberFormatException e) {
+                                System.err.println("Erro de parse na linha " + (i + 1) + ": " + e.getMessage());
+                            }
+                        }
                     }
+
+                    break; // Tabela já encontrada e processada
                 }
+            }
 
-                // Escrever para o arquivo CSV
-                try (FileWriter writer = new FileWriter(CSV_FILE)) {
-                    // Escrever o cabeçalho
-                    writer.write(String.join(",", headers) + "\n");
-
-                    // Escrever os dados dos Pokémon
-                    for (Map<String, String> pokemon : pokemonData) {
-                        writer.write(pokemon.get(headers[0]) + "," +
-                                pokemon.get(headers[1]) + "," +
-                                pokemon.get(headers[2]) + "," +
-                                pokemon.get(headers[3]) + "," +
-                                pokemon.get(headers[4]) + "," +
-                                pokemon.get(headers[5]) + "\n");
-                    }
-                    System.out.println("Dados dos Pokémon da Geração I salvos em " + CSV_FILE);
-
-                } catch (IOException e) {
-                    System.err.println("Erro ao escrever no arquivo CSV: " + e.getMessage());
-                }
-
-            } else {
-                System.err.println("Tabela de dados não encontrada na página.");
+            // Serializa e salva no arquivo JSON
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            try (FileWriter writer = new FileWriter("generation1_stats.json")) {
+                gson.toJson(pokemons, writer);
+                System.out.println("Arquivo 'generation1_stats.json' criado com sucesso.");
             }
 
         } catch (IOException e) {
-            System.err.println("Erro ao acessar a URL: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
